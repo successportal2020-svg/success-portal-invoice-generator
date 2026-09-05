@@ -21,6 +21,7 @@ function collect(){const totals=calculate();return {timestamp:new Date().toISOSt
 function validate(data){if(!data.number)return'Document number is required.';if(!data.customerName)return'Customer name is required.';if(!data.items.length)return'Add at least one item description.';return''}
 async function saveRecord(){const data=collect(),error=validate(data);if(error){alert(error);return false}const url=localStorage.getItem('successPortalScriptUrl')||DEFAULT_SCRIPT_URL;$('#saveStatus').textContent='Saving…';try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(data)});localStorage.setItem('successPortalLastRecord',JSON.stringify(data));$('#saveStatus').textContent='Record sent to Google Sheet';return true}catch(e){$('#saveStatus').textContent='Save failed';alert('Could not send the record. Check the Apps Script deployment and internet connection.');return false}}
 async function getPdfLogo(){
+  if(window.SUCCESS_PORTAL_LOGO_JPEG)return window.SUCCESS_PORTAL_LOGO_JPEG;
   const image=$('#documentPaper .logo');
   try{if(image.decode)await image.decode();const canvas=document.createElement('canvas');canvas.width=image.naturalWidth||1488;canvas.height=image.naturalHeight||664;const ctx=canvas.getContext('2d');ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);return canvas.toDataURL('image/jpeg',.96)}catch(e){return null}
 }
