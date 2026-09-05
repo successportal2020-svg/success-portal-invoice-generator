@@ -19,7 +19,26 @@ function setType(type){state.type=type;document.body.classList.toggle('receipt-m
 function collect(){const totals=calculate();return {timestamp:new Date().toISOString(),type:state.type,number:$('#documentNumber').value.trim(),date:$('#documentDate').value,dueDate:state.type==='invoice'?$('#dueDate').value:'',businessName:$('#businessName').value.trim(),businessDetails:$('#businessDetails').value.trim(),customerName:$('#customerName').value.trim(),customerDetails:$('#customerDetails').value.trim(),currency:$('#currency').value,taxRate:numberValue($('#taxRate')),notes:$('#notes').value.trim(),items:$$('#itemsBody tr').map(r=>({description:r.querySelector('.item-description').value.trim(),quantity:numberValue(r.querySelector('.item-qty')),rate:numberValue(r.querySelector('.item-rate')),amount:numberValue(r.querySelector('.item-qty'))*numberValue(r.querySelector('.item-rate'))})).filter(i=>i.description),...totals}}
 function validate(data){if(!data.number)return'Document number is required.';if(!data.customerName)return'Customer name is required.';if(!data.items.length)return'Add at least one item description.';return''}
 async function saveRecord(){const data=collect(),error=validate(data);if(error){alert(error);return false}const url=localStorage.getItem('successPortalScriptUrl');if(!url){$('#settingsDialog').showModal();$('#saveStatus').textContent='Connect Google Sheet';return false}$('#saveStatus').textContent='Saving…';try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(data)});localStorage.setItem('successPortalLastRecord',JSON.stringify(data));$('#saveStatus').textContent='Record sent to Google Sheet';return true}catch(e){$('#saveStatus').textContent='Save failed';alert('Could not send the record. Check the Apps Script URL and internet connection.');return false}}
-async function downloadPdf(){const data=collect(),error=validate(data);if(error){alert(error);return}if(typeof html2pdf==='undefined'){window.print();return}const name=`${state.type}-${data.number || 'document'}.pdf`;const options={margin:0,filename:name,image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['avoid-all','css','legacy']}};await html2pdf().set(options).from($('#documentPaper')).save()}
+function createPdfCopy(){
+  const copy=$('#documentPaper').cloneNode(true);copy.id='pdfDocument';copy.classList.add('pdf-export');
+  copy.querySelectorAll('.no-print').forEach(el=>el.remove());
+  copy.querySelectorAll('input, textarea, select').forEach(field=>{
+    const text=document.createElement(field.tagName==='TEXTAREA'?'div':'span');
+    text.className='pdf-field';
+    text.textContent=field.tagName==='SELECT'?field.options[field.selectedIndex]?.textContent||field.value:field.value;
+    field.replaceWith(text);
+  });
+  copy.querySelectorAll('.items-wrap th:last-child').forEach(el=>el.remove());
+  return copy;
+}
+async function downloadPdf(){
+  const data=collect(),error=validate(data);if(error){alert(error);return}
+  if(typeof html2pdf==='undefined'){window.print();return}
+  const name=`${state.type}-${data.number || 'document'}.pdf`,copy=createPdfCopy();
+  document.body.append(copy);
+  const options={margin:0,filename:name,image:{type:'jpeg',quality:.99},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',scrollX:0,scrollY:0},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}};
+  try{await html2pdf().set(options).from(copy).save()}finally{copy.remove()}
+}
 function resetDocument(){if(!confirm('Start a new document? Unsaved entries will be cleared.'))return;$('#customerName').value='';$('#customerDetails').value='';$('#notes').value='';$('#taxRate').value=0;$('#discount').value=0;$('#amountPaid').value=0;$('#itemsBody').innerHTML='';addItem();setType(state.type);$('#documentDate').value=new Date().toISOString().slice(0,10);$('#dueDate').value=new Date(Date.now()+7*864e5).toISOString().slice(0,10);$('#saveStatus').textContent='Ready'}
 
 $('#addItem').addEventListener('click',()=>addItem());$('#invoiceType').addEventListener('click',()=>setType('invoice'));$('#receiptType').addEventListener('click',()=>setType('receipt'));['currency','taxRate','discount','amountPaid'].forEach(id=>$('#'+id).addEventListener('input',calculate));$('#saveButton').addEventListener('click',saveRecord);$('#pdfButton').addEventListener('click',downloadPdf);$('#newButton').addEventListener('click',resetDocument);$('#settingsButton').addEventListener('click',()=>{$('#scriptUrl').value=localStorage.getItem('successPortalScriptUrl')||'';$('#settingsDialog').showModal()});$('#saveSettings').addEventListener('click',()=>{const url=$('#scriptUrl').value.trim();if(url)localStorage.setItem('successPortalScriptUrl',url);$('#saveStatus').textContent=url?'Google Sheet connected':'Connection not set'});
