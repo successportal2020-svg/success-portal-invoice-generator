@@ -20,13 +20,19 @@ function setType(type){state.type=type;document.body.classList.toggle('receipt-m
 function collect(){const totals=calculate();return {timestamp:new Date().toISOString(),type:state.type,number:$('#documentNumber').value.trim(),date:$('#documentDate').value,dueDate:state.type==='invoice'?$('#dueDate').value:'',businessName:$('#businessName').value.trim(),businessDetails:$('#businessDetails').value.trim(),customerName:$('#customerName').value.trim(),customerDetails:$('#customerDetails').value.trim(),currency:$('#currency').value,taxRate:numberValue($('#taxRate')),notes:$('#notes').value.trim(),items:$$('#itemsBody tr').map(r=>({description:r.querySelector('.item-description').value.trim(),quantity:numberValue(r.querySelector('.item-qty')),rate:numberValue(r.querySelector('.item-rate')),amount:numberValue(r.querySelector('.item-qty'))*numberValue(r.querySelector('.item-rate'))})).filter(i=>i.description),...totals}}
 function validate(data){if(!data.number)return'Document number is required.';if(!data.customerName)return'Customer name is required.';if(!data.items.length)return'Add at least one item description.';return''}
 async function saveRecord(){const data=collect(),error=validate(data);if(error){alert(error);return false}const url=localStorage.getItem('successPortalScriptUrl')||DEFAULT_SCRIPT_URL;$('#saveStatus').textContent='Saving…';try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(data)});localStorage.setItem('successPortalLastRecord',JSON.stringify(data));$('#saveStatus').textContent='Record sent to Google Sheet';return true}catch(e){$('#saveStatus').textContent='Save failed';alert('Could not send the record. Check the Apps Script deployment and internet connection.');return false}}
+async function getPdfLogo(){
+  const image=$('#documentPaper .logo');
+  try{if(image.decode)await image.decode();const canvas=document.createElement('canvas');canvas.width=image.naturalWidth||1488;canvas.height=image.naturalHeight||664;const ctx=canvas.getContext('2d');ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);return canvas.toDataURL('image/jpeg',.96)}catch(e){return null}
+}
 async function downloadPdf(){
   const data=collect(),error=validate(data);if(error){alert(error);return}
   if(!window.jspdf){alert('PDF service did not load. Refresh the page and try again.');return}
   const {jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',format:'a4',orientation:'portrait'}),orange=[255,138,0],ink=[23,33,43],slate=[117,131,145];
   const left=16,right=194,width=178,fmt=n=>money(n).replace(/\u00a0/g,' '),line=(text,x,y,max=80)=>doc.splitTextToSize(String(text||''),max);
   doc.setFillColor(...orange);doc.rect(0,0,140,3,'F');doc.setFillColor(...slate);doc.rect(140,0,70,3,'F');
-  try{doc.addImage($('#documentPaper .logo').src,'PNG',16,13,76,25,undefined,'FAST')}catch(e){doc.setTextColor(...orange);doc.setFont('helvetica','bold');doc.setFontSize(20);doc.text('SUCCESS PORTAL',left,25)}
+  const drawLogoFallback=()=>{doc.setDrawColor(...slate);doc.roundedRect(16,13,23,22,3,3);doc.setTextColor(...orange);doc.setFont('helvetica','bold');doc.setFontSize(18);doc.text('SUCCESS',43,23);doc.setTextColor(...slate);doc.setFont('helvetica','normal');doc.setFontSize(15);doc.text('PORTAL',43,32)};
+  const logoData=await getPdfLogo();
+  if(logoData){try{doc.addImage(logoData,'JPEG',16,13,76,25,undefined,'FAST')}catch(e){drawLogoFallback()}}else drawLogoFallback();
   doc.setTextColor(...orange);doc.setFont('helvetica','bold');doc.setFontSize(25);doc.text(data.type.toUpperCase(),right,19,{align:'right'});
   doc.setTextColor(...slate);doc.setFontSize(8);doc.text('NO.',145,28);doc.text('DATE',145,34);if(data.type==='invoice')doc.text('DUE',145,40);
   doc.setTextColor(...ink);doc.setFont('helvetica','bold');doc.text(data.number,right,28,{align:'right'});doc.text(data.date,right,34,{align:'right'});if(data.type==='invoice')doc.text(data.dueDate||'-',right,40,{align:'right'});
