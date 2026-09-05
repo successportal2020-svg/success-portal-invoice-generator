@@ -19,25 +19,30 @@ function setType(type){state.type=type;document.body.classList.toggle('receipt-m
 function collect(){const totals=calculate();return {timestamp:new Date().toISOString(),type:state.type,number:$('#documentNumber').value.trim(),date:$('#documentDate').value,dueDate:state.type==='invoice'?$('#dueDate').value:'',businessName:$('#businessName').value.trim(),businessDetails:$('#businessDetails').value.trim(),customerName:$('#customerName').value.trim(),customerDetails:$('#customerDetails').value.trim(),currency:$('#currency').value,taxRate:numberValue($('#taxRate')),notes:$('#notes').value.trim(),items:$$('#itemsBody tr').map(r=>({description:r.querySelector('.item-description').value.trim(),quantity:numberValue(r.querySelector('.item-qty')),rate:numberValue(r.querySelector('.item-rate')),amount:numberValue(r.querySelector('.item-qty'))*numberValue(r.querySelector('.item-rate'))})).filter(i=>i.description),...totals}}
 function validate(data){if(!data.number)return'Document number is required.';if(!data.customerName)return'Customer name is required.';if(!data.items.length)return'Add at least one item description.';return''}
 async function saveRecord(){const data=collect(),error=validate(data);if(error){alert(error);return false}const url=localStorage.getItem('successPortalScriptUrl');if(!url){$('#settingsDialog').showModal();$('#saveStatus').textContent='Connect Google Sheet';return false}$('#saveStatus').textContent='Saving…';try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(data)});localStorage.setItem('successPortalLastRecord',JSON.stringify(data));$('#saveStatus').textContent='Record sent to Google Sheet';return true}catch(e){$('#saveStatus').textContent='Save failed';alert('Could not send the record. Check the Apps Script URL and internet connection.');return false}}
-function createPdfCopy(){
-  const copy=$('#documentPaper').cloneNode(true);copy.id='pdfDocument';copy.classList.add('pdf-export');
-  copy.querySelectorAll('.no-print').forEach(el=>el.remove());
-  copy.querySelectorAll('input, textarea, select').forEach(field=>{
-    const text=document.createElement(field.tagName==='TEXTAREA'?'div':'span');
-    text.className='pdf-field';
-    text.textContent=field.tagName==='SELECT'?field.options[field.selectedIndex]?.textContent||field.value:field.value;
-    field.replaceWith(text);
-  });
-  copy.querySelectorAll('.items-wrap th:last-child').forEach(el=>el.remove());
-  return copy;
-}
 async function downloadPdf(){
   const data=collect(),error=validate(data);if(error){alert(error);return}
-  if(typeof html2pdf==='undefined'){window.print();return}
-  const name=`${state.type}-${data.number || 'document'}.pdf`,copy=createPdfCopy();
-  document.body.append(copy);
-  const options={margin:0,filename:name,image:{type:'jpeg',quality:.99},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',scrollX:0,scrollY:0},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}};
-  try{await html2pdf().set(options).from(copy).save()}finally{copy.remove()}
+  if(!window.jspdf){alert('PDF service did not load. Refresh the page and try again.');return}
+  const {jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',format:'a4',orientation:'portrait'}),orange=[255,138,0],ink=[23,33,43],slate=[117,131,145];
+  const left=16,right=194,width=178,fmt=n=>money(n).replace(/\u00a0/g,' '),line=(text,x,y,max=80)=>doc.splitTextToSize(String(text||''),max);
+  doc.setFillColor(...orange);doc.rect(0,0,140,3,'F');doc.setFillColor(...slate);doc.rect(140,0,70,3,'F');
+  try{doc.addImage($('#documentPaper .logo').src,'PNG',16,13,76,25,undefined,'FAST')}catch(e){doc.setTextColor(...orange);doc.setFont('helvetica','bold');doc.setFontSize(20);doc.text('SUCCESS PORTAL',left,25)}
+  doc.setTextColor(...orange);doc.setFont('helvetica','bold');doc.setFontSize(25);doc.text(data.type.toUpperCase(),right,19,{align:'right'});
+  doc.setTextColor(...slate);doc.setFontSize(8);doc.text('NO.',145,28);doc.text('DATE',145,34);if(data.type==='invoice')doc.text('DUE',145,40);
+  doc.setTextColor(...ink);doc.setFont('helvetica','bold');doc.text(data.number,right,28,{align:'right'});doc.text(data.date,right,34,{align:'right'});if(data.type==='invoice')doc.text(data.dueDate||'-',right,40,{align:'right'});
+  doc.setDrawColor(219,225,230);doc.line(left,46,right,46);
+  doc.setTextColor(...slate);doc.setFontSize(8);doc.text('ISSUED BY',left,56);doc.text('BILL TO',112,56);
+  doc.setTextColor(...ink);doc.setFontSize(13);doc.text(data.businessName||'Success Portal',left,64);doc.text(line(data.customerName,80),112,64);
+  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(83,96,107);doc.text(line(data.businessDetails,left===16?82:82),left,71);doc.text(line(data.customerDetails,80),112,71);
+  let y=92;doc.setFillColor(...ink);doc.rect(left,y,width,10,'F');doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text('DESCRIPTION',left+3,y+6.5);doc.text('QTY',132,y+6.5,{align:'right'});doc.text('RATE',162,y+6.5,{align:'right'});doc.text('AMOUNT',right-3,y+6.5,{align:'right'});y+=10;
+  doc.setTextColor(...ink);doc.setFont('helvetica','normal');doc.setFontSize(8.5);
+  for(const item of data.items){if(y>222){doc.addPage();y=18}doc.text(line(item.description,95),left+3,y+7);doc.text(String(item.quantity),132,y+7,{align:'right'});doc.text(fmt(item.rate),162,y+7,{align:'right'});doc.setFont('helvetica','bold');doc.text(fmt(item.amount),right-3,y+7,{align:'right'});doc.setFont('helvetica','normal');doc.setDrawColor(219,225,230);doc.line(left,y+11,right,y+11);y+=12}
+  y=Math.max(y+8,150);const labelX=139,valueX=191;doc.setFontSize(8);doc.setTextColor(...slate);doc.text('Subtotal',labelX,y);doc.setTextColor(...ink);doc.setFont('helvetica','bold');doc.text(fmt(data.subtotal),valueX,y,{align:'right'});y+=8;doc.setFont('helvetica','normal');doc.setTextColor(...slate);doc.text('Discount',labelX,y);doc.setTextColor(...ink);doc.text(fmt(data.discount),valueX,y,{align:'right'});y+=8;doc.setTextColor(...slate);doc.text(`Tax (${data.taxRate}%)`,labelX,y);doc.setTextColor(...ink);doc.text(fmt(data.tax),valueX,y,{align:'right'});y+=5;
+  doc.setFillColor(...ink);doc.rect(134,y,60,13,'F');doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.text('TOTAL',139,y+8);doc.setFontSize(11);doc.text(fmt(data.total),191,y+8,{align:'right'});y+=18;
+  if(data.type==='receipt'){doc.setFontSize(8);doc.setTextColor(...slate);doc.text('Amount paid',139,y);doc.setTextColor(...ink);doc.text(fmt(data.amountPaid),191,y,{align:'right'});y+=5;doc.setDrawColor(...orange);doc.setLineWidth(.6);doc.rect(134,y,60,14);doc.setTextColor(...orange);doc.text('AMOUNT DUE',139,y+9);doc.setFontSize(11);doc.text(fmt(data.amountDue),191,y+9,{align:'right'})}
+  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...slate);doc.text('NOTES / PAYMENT DETAILS',left,158);doc.text(line(data.notes||'Thank you for your business.',100),left,165);
+  doc.setDrawColor(219,225,230);doc.line(left,280,right,280);doc.setTextColor(...orange);doc.setFont('helvetica','bold');doc.setFontSize(7);doc.text('YOUR GATEWAY TO SUCCESS',left,286);doc.setTextColor(...slate);doc.setFont('helvetica','normal');doc.text('successportal2020@gmail.com | +265 891 677 102',right,286,{align:'right'});
+  doc.save(`${data.type}-${data.number}.pdf`);
+  if(localStorage.getItem('successPortalScriptUrl'))await saveRecord();else{$('#saveStatus').textContent='PDF downloaded - Google Sheet not connected';setTimeout(()=>$('#settingsDialog').showModal(),300)}
 }
 function resetDocument(){if(!confirm('Start a new document? Unsaved entries will be cleared.'))return;$('#customerName').value='';$('#customerDetails').value='';$('#notes').value='';$('#taxRate').value=0;$('#discount').value=0;$('#amountPaid').value=0;$('#itemsBody').innerHTML='';addItem();setType(state.type);$('#documentDate').value=new Date().toISOString().slice(0,10);$('#dueDate').value=new Date(Date.now()+7*864e5).toISOString().slice(0,10);$('#saveStatus').textContent='Ready'}
 
