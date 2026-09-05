@@ -66,6 +66,8 @@ Malawi</textarea>
         </div>
         <div class="party to">
           <p class="section-label">BILL TO</p>
+          <label class="receipt-only customer-picker-label" for="savedCustomer">SELECT SAVED CUSTOMER</label>
+          <select id="savedCustomer" class="receipt-only customer-picker"><option value="">Loading customers...</option></select>
           <input id="customerName" class="big-input" placeholder="Customer or company name" aria-label="Customer name">
           <textarea id="customerDetails" rows="4" placeholder="Address, phone and email" aria-label="Customer contact details"></textarea>
         </div>
@@ -85,10 +87,10 @@ Malawi</textarea>
           <textarea id="notes" rows="4" placeholder="Thank you for your business."></textarea>
         </div>
         <div class="totals">
-          <div><span>Subtotal</span><strong id="subtotal">MWK 0.00</strong></div>
-          <div><span>Discount</span><strong id="discountTotal">MWK 0.00</strong></div>
-          <div><span>Tax</span><strong id="taxTotal">MWK 0.00</strong></div>
-          <div class="grand-total"><span>Total</span><strong id="grandTotal">MWK 0.00</strong></div>
+          <div><span id="subtotalLabel">Subtotal</span><strong id="subtotal">MWK 0.00</strong></div>
+          <div class="invoice-only"><span>Discount</span><strong id="discountTotal">MWK 0.00</strong></div>
+          <div class="invoice-only"><span>Tax</span><strong id="taxTotal">MWK 0.00</strong></div>
+          <div class="grand-total"><span id="totalLabel">Total</span><strong id="grandTotal">MWK 0.00</strong></div>
           <div class="receipt-only paid-row"><span>Amount paid</span><strong id="paidTotal">MWK 0.00</strong></div>
           <div class="receipt-only due-row"><span>AMOUNT DUE</span><strong id="amountDue">MWK 0.00</strong></div>
         </div>
@@ -121,6 +123,6 @@ Malawi</textarea>
   </template>
   <script src="logo-data.js?v=20260905-2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="app.js?v=20260905-dedupe1"></script>
+  <script src="app.js?v=20260905-accounts1"></script>
 </body>
 </html>
