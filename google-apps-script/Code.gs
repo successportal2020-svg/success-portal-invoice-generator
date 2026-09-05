@@ -10,6 +10,13 @@ function doPost(e) {
       let sheet = spreadsheet.getSheetByName(SHEET_NAME);
       if (!sheet) sheet = spreadsheet.insertSheet(SHEET_NAME);
       ensureHeaders_(sheet);
+      const lastRow = sheet.getLastRow();
+      if (lastRow > 1) {
+        const existingNumbers = sheet.getRange(2, 3, lastRow - 1, 1).getDisplayValues().flat();
+        if (existingNumbers.some(number => String(number).trim() === String(data.number).trim())) {
+          return json_({ok:false, duplicate:true, error:'Document number already exists', number:data.number});
+        }
+      }
       sheet.appendRow([
         new Date(), data.type, data.number, data.date, data.dueDate || '',
         data.customerName, data.customerDetails, data.currency,
